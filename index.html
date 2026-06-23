@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>iCaur Live SOC — Live state of charge for iCaur EVs</title>
+<meta name="description" content="A self-tuning range companion for the iCaur 03 and V23. Measured live, predicted forward, never guessed.">
+<meta name="theme-color" content="#08090C">
+
+<!-- ============================================================
+     LINK PREVIEW (WhatsApp / Telegram / X / iMessage)
+     og:image MUST be an absolute URL to a hosted PNG (1200x630).
+     WhatsApp cannot render this page or a canvas into a thumbnail.
+     1. Replace YOUR-DOMAIN below with your deployed origin.
+     2. Drop a 1200x630 PNG at /og-cover.png at that origin
+        (your existing share-card export works as the cover).
+     ============================================================ -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="iCaur Live SOC">
+<meta property="og:title" content="iCaur Live SOC — know your real charge">
+<meta property="og:description" content="Self-tuning live SOC + arrival prediction for iCaur 03 & V23. Measured live, predicted forward.">
+<meta property="og:url" content="https://YOUR-DOMAIN/">
+<meta property="og:image" content="https://YOUR-DOMAIN/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="iCaur Live SOC trip share card">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iCaur Live SOC — know your real charge">
+<meta name="twitter:description" content="Self-tuning live SOC + arrival prediction for iCaur 03 & V23.">
+<meta name="twitter:image" content="https://YOUR-DOMAIN/og-cover.png">
+
+<style>
+:root{
+  --bg:#08090C;--panel:#0E1116;--panel-2:#12161D;
+  --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.12);
+  --ink:#F2F5F8;--ink-dim:#8B95A3;--ink-faint:#5A636F;
+  --tier-high:#34E0A1;--tier-mid:#FFC24B;--tier-low:#FF6B5E;
+  --accent:#4DA6FF;--violet:#8B7BFF;--glow-mint:rgba(52,224,161,.25);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);
+  font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.5}
+.wrap{max-width:430px;margin:0 auto;position:relative;min-height:100vh}
+
+.atmos{position:fixed;inset:0;pointer-events:none;z-index:0;max-width:430px;left:50%;transform:translateX(-50%)}
+.atmos::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 60% at 50% -10%,rgba(77,166,255,.10),transparent 60%),
+            radial-gradient(80% 50% at 80% 110%,rgba(139,123,255,.08),transparent 60%)}
+.atmos::after{content:"";position:absolute;inset:0;opacity:.4;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:44px 44px;mask:radial-gradient(120% 80% at 50% 0%,#000,transparent 75%)}
+
+.rail{position:fixed;top:0;left:0;height:2px;z-index:50;width:0%;
+  background:linear-gradient(90deg,var(--tier-high),var(--accent));transition:width .15s linear;
+  box-shadow:0 0 12px var(--glow-mint)}
+
+section{position:relative;z-index:1;padding:0 22px}
+
+/* HERO */
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:space-between;padding-top:60px;padding-bottom:38px}
+.brandrow{display:flex;align-items:center;gap:10px;opacity:0;animation:fadeUp .7s .1s forwards}
+.mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--tier-high),#1FB97F);
+  display:grid;place-items:center;box-shadow:0 4px 20px var(--glow-mint)}
+.mark svg{width:17px;height:17px}
+.brandrow b{font-size:14px;letter-spacing:.02em;font-weight:650}
+.brandrow .ver{font-size:11px;color:var(--ink-faint);margin-left:auto;letter-spacing:.08em;text-transform:uppercase}
+.heroclaim{margin-top:auto}
+.eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--tier-high);font-weight:600;
+  opacity:0;animation:fadeUp .7s .25s forwards}
+.heroclaim h1{font-size:44px;line-height:1.03;font-weight:680;letter-spacing:-.03em;margin:16px 0 0;
+  opacity:0;animation:fadeUp .8s .35s forwards}
+.heroclaim h1 em{font-style:normal;color:var(--ink-dim)}
+.heroclaim p{margin-top:18px;color:var(--ink-dim);font-size:15.5px;max-width:340px;
+  opacity:0;animation:fadeUp .8s .5s forwards}
+.variants{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;opacity:0;animation:fadeUp .8s .58s forwards}
+.variants span{font-size:11px;padding:5px 10px;border-radius:8px;background:var(--panel-2);
+  border:1px solid var(--line);color:var(--ink-dim);letter-spacing:.02em}
+
+.gauge{margin-top:26px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:24px;padding:22px 22px 20px;position:relative;overflow:hidden;
+  opacity:0;animation:fadeUp .9s .66s forwards;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.04)}
+.gauge .glow{position:absolute;top:-40%;left:-20%;width:140%;height:140%;
+  background:radial-gradient(closest-side,var(--glow-mint),transparent);opacity:.5}
+.gauge .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);position:relative;
+  display:flex;align-items:center;gap:7px}
+.gauge .lbl .live{width:7px;height:7px;border-radius:99px;background:var(--tier-high);box-shadow:0 0 8px var(--tier-high);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.gauge .src{margin-left:auto;font-size:9.5px;letter-spacing:.1em;color:var(--ink-faint)}
+.soc{display:flex;align-items:baseline;gap:6px;position:relative;margin-top:6px}
+.soc b{font-size:62px;font-weight:700;letter-spacing:-.04em;
+  background:linear-gradient(180deg,#fff,var(--tier-high));-webkit-background-clip:text;background-clip:text;color:transparent}
+.soc small{font-size:24px;color:var(--tier-high);font-weight:600}
+.soc .pill{margin-left:auto;align-self:center;font-size:12px;background:rgba(52,224,161,.12);
+  color:var(--tier-high);padding:6px 11px;border-radius:999px;border:1px solid rgba(52,224,161,.2);font-weight:600}
+.bar{height:7px;border-radius:99px;background:rgba(255,255,255,.06);margin-top:16px;overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0;width:74%;border-radius:99px;
+  background:linear-gradient(90deg,var(--tier-low),var(--tier-mid) 45%,var(--tier-high))}
+.gstats{display:flex;gap:24px;margin-top:18px;position:relative}
+.gstats div small{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.gstats div b{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.gstats div b u{text-decoration:none;color:var(--ink-faint);font-size:12px;font-weight:500;margin-left:2px}
+
+.scrollcue{display:flex;flex-direction:column;align-items:center;gap:7px;margin-top:24px;
+  color:var(--ink-faint);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  opacity:0;animation:fadeUp 1s .9s forwards}
+.scrollcue .dot{width:22px;height:34px;border:1.5px solid var(--line-2);border-radius:14px;position:relative}
+.scrollcue .dot::after{content:"";position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  width:3px;height:7px;border-radius:2px;background:var(--tier-high);animation:scrolldot 1.6s infinite}
+@keyframes scrolldot{0%{opacity:0;transform:translate(-50%,0)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,12px)}}
+
+/* FEATURES */
+.feat{padding-top:76px;padding-bottom:16px}
+.kicker{display:flex;align-items:center;gap:9px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:600}
+.kicker .n{color:var(--tier-high);font-variant-numeric:tabular-nums}
+.kicker .ln{flex:1;height:1px;background:var(--line)}
+.feat h2{font-size:30px;line-height:1.08;font-weight:660;letter-spacing:-.02em;margin:18px 0 0}
+.feat h2 em{font-style:normal;color:var(--ink-dim)}
+.feat .sub{color:var(--ink-dim);font-size:14.5px;margin-top:12px;max-width:340px}
+
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}
+
+.card{margin-top:24px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:26px;padding:20px;position:relative;overflow:hidden;
+  box-shadow:0 30px 70px -34px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.04)}
+
+.tracecard .head{display:flex;justify-content:space-between;align-items:flex-start}
+.tracecard .head .ar{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.tracecard .head .ar b{display:block;font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--tier-high);margin-top:2px}
+.tracecard .head .badge{font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(77,166,255,.12);
+  color:var(--accent);border:1px solid rgba(77,166,255,.22);font-weight:600}
+.map{height:150px;margin-top:16px;border-radius:16px;position:relative;overflow:hidden;
+  background:radial-gradient(120% 120% at 30% 10%,#10151C,#0A0D12);border:1px solid var(--line)}
+.map svg{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;align-items:center;gap:6px;margin-top:14px;font-size:10.5px;color:var(--ink-faint)}
+.legend .grad{flex:1;height:6px;border-radius:99px;background:linear-gradient(90deg,var(--tier-high),var(--tier-mid),var(--tier-low))}
+.statgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;margin-top:16px;
+  background:var(--line);border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.statgrid div{background:var(--panel);padding:13px 12px}
+.statgrid small{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.statgrid b{display:block;font-size:18px;font-weight:600;margin-top:3px;letter-spacing:-.01em}
+
+.splitwrap{display:flex;gap:12px;margin-top:24px}
+.minicard{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:18px;padding:16px}
+.minicard .t{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.minicard .big{font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:6px}
+.minicard.meas .big{color:#fff}.minicard.pred .big{color:var(--accent)}
+.minicard .cap{font-size:11.5px;color:var(--ink-dim);margin-top:8px;line-height:1.45}
+
+.learncard{display:flex;flex-direction:column;gap:14px}
+.convrow{display:flex;align-items:center;gap:12px}
+.convrow .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);width:88px;flex:none}
+.track{flex:1;height:8px;border-radius:99px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+.track i{position:absolute;top:0;bottom:0;left:0;border-radius:99px;background:linear-gradient(90deg,var(--violet),var(--accent))}
+.convrow .v{font-size:13px;font-variant-numeric:tabular-nums;width:46px;text-align:right;flex:none;font-weight:600}
+.note{font-size:12px;color:var(--ink-faint);margin-top:4px;padding-left:2px}
+
+.fbul{display:flex;flex-direction:column;gap:2px;margin-top:22px}
+.fbul .row{display:flex;gap:14px;padding:15px 2px;border-top:1px solid var(--line)}
+.fbul .row:first-child{border-top:none}
+.fbul .ico{width:34px;height:34px;flex:none;border-radius:11px;background:var(--panel-2);border:1px solid var(--line);
+  display:grid;place-items:center}
+.fbul .ico svg{width:17px;height:17px;stroke:var(--tier-high)}
+.fbul .tx b{font-size:14.5px;font-weight:600;display:block}
+.fbul .tx p{font-size:13px;color:var(--ink-dim);margin-top:3px}
+
+/* CLOSE */
+.close{min-height:84svh;display:flex;flex-direction:column;justify-content:center;padding-bottom:54px}
+.close h2{font-size:38px;font-weight:680;letter-spacing:-.03em;line-height:1.05}
+.close h2 em{font-style:normal;color:var(--tier-high)}
+.close p{color:var(--ink-dim);margin-top:16px;font-size:15px;max-width:330px}
+.price{margin-top:26px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:20px;padding:22px}
+.price .row1{display:flex;align-items:baseline;gap:10px}
+.price .amt{font-size:38px;font-weight:700;letter-spacing:-.03em}
+.price .per{font-size:13px;color:var(--ink-dim)}
+.price .tag{margin-left:auto;font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(52,224,161,.12);
+  color:var(--tier-high);border:1px solid rgba(52,224,161,.2);font-weight:600;letter-spacing:.04em}
+.price ul{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.price li{display:flex;gap:10px;font-size:13.5px;color:var(--ink-dim)}
+.price li svg{width:16px;height:16px;flex:none;stroke:var(--tier-high);margin-top:1px}
+.foot{margin-top:30px;font-size:11px;color:var(--ink-faint);letter-spacing:.06em;display:flex;gap:8px;align-items:center}
+.foot .d{width:4px;height:4px;border-radius:99px;background:var(--ink-faint)}
+.replay{margin-top:18px;text-align:center}
+.replay a{font-size:12px;color:var(--ink-faint);text-decoration:none;letter-spacing:.06em}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="rail" id="rail"></div>
+<div class="atmos"></div>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="brandrow">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#03130D"/></svg></div>
+      <b>iCaur Live SOC</b>
+      <span class="ver">v10.2</span>
+    </div>
+
+    <div class="heroclaim">
+      <div class="eyebrow">Live state of charge</div>
+      <h1>Know your real<br>charge. <em>Before</em><br>the head unit does.</h1>
+      <p>A self-tuning range companion for iCaur EVs — measured live, predicted forward, never guessed.</p>
+      <div class="variants">
+        <span>iCaur 03 iWD</span><span>iCaur 03 2WD</span><span>iCaur V23 iWD</span><span>iCaur V23 2WD</span>
+      </div>
+
+      <div class="gauge">
+        <div class="glow"></div>
+        <div class="lbl"><span class="live"></span><span>Live SOC</span><span class="src" id="gaugeSrc">SAMPLE</span></div>
+        <div class="soc">
+          <b id="socVal">74</b><small>%</small>
+          <span class="pill" id="rangePill">● 312 km</span>
+        </div>
+        <div class="bar"><i id="socBar"></i></div>
+        <div class="gstats">
+          <div><small>Arrival SOC</small><b id="arrVal">61<u>%</u></b></div>
+          <div><small>Efficiency</small><b id="effVal">15.2<u>kWh/100</u></b></div>
+          <div><small>Trips logged</small><b id="tripVal">14</b></div>
+        </div>
+      </div>
+
+      <div class="scrollcue"><div class="dot"></div>Scroll the tour</div>
+    </div>
+  </section>
+
+  <!-- 01 -->
+  <section class="feat">
+    <div class="kicker reveal"><span class="n">01</span><span>Looks ahead, not behind</span><span class="ln"></span></div>
+    <h2 class="reveal d1">It reads the road<br><em>before</em> you reach it.</h2>
+    <p class="sub reveal d2">Most trip computers only know the terrain after you've driven over it. iCaur Live SOC projects your heading, snaps it to the real road network with OSRM, samples the elevation of the climb ahead, and folds that into your arrival SOC early — silently, automatically, no buttons.</p>
+    <div class="fbul reveal d2">
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 18 9 6l6 12 6-12"/></svg></div>
+        <div class="tx"><b>OSRM road snap</b><p>Your projected path locks to the actual highway, not a straight line.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 20 9 9l4 6 3-4 5 9z"/></svg></div>
+        <div class="tx"><b>Elevation sampling ahead</b><p>Karak's climbs are priced in before the hill, not after.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3a6 6 0 0 0-6 6c0 4 6 12 6 12s6-8 6-12a6 6 0 0 0-6-6z"/><circle cx="12" cy="9" r="2"/></svg></div>
+        <div class="tx"><b>Silent &amp; automatic</b><p>Fires once you're rolling, self-corrects after real turns, never nags on failure.</p></div></div>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section class="feat">
+    <div class="kicker reveal"><span class="n">02</span><span>The share card</span><span class="ln"></span></div>
+    <h2 class="reveal d1">A trip worth<br><em>showing off.</em></h2>
+    <p class="sub reveal d2">Route trace hero with a real Peninsular Malaysia map, drain gradient, arrival headline in your tier colour. Adaptive zoom frames a short hop or a full road trip. One tap and it's a PNG for the group chat.</p>
+    <div class="card tracecard reveal d2">
+      <div class="head">
+        <div class="ar">Arrival SOC<b>61%</b></div>
+        <div class="badge">ROAD TRIP · 2 LEGS</div>
+      </div>
+      <div class="map">
+        <svg viewBox="0 0 360 150" preserveAspectRatio="none">
+          <defs><linearGradient id="rt" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#34E0A1"/><stop offset=".55" stop-color="#FFC24B"/><stop offset="1" stop-color="#FF6B5E"/>
+          </linearGradient></defs>
+          <path d="M24 118 C70 70,110 96,150 64 S250 30,296 44 348 30 348 30" fill="none" stroke="url(#rt)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="24" cy="118" r="6" fill="#34E0A1" stroke="#03130D" stroke-width="2"/>
+          <circle cx="200" cy="48" r="5" fill="#4DA6FF" stroke="#03130D" stroke-width="2"/>
+          <circle cx="348" cy="30" r="6" fill="#FF6B5E" stroke="#03130D" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="legend"><span>Drained</span><div class="grad"></div><span>Fresh</span></div>
+      <div class="statgrid">
+        <div><small>Distance</small><b>118 km</b></div>
+        <div><small>Used</small><b>24.6 kWh</b></div>
+        <div><small>Avg</small><b>15.2</b></div>
+        <div><small>Duration</small><b>1h 22m</b></div>
+        <div><small>Charge stop</small><b>18 min</b></div>
+        <div><small>Net Δ</small><b>−13%</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="feat">
+    <div class="kicker reveal"><span class="n">03</span><span>Two engines, one screen</span><span class="ln"></span></div>
+    <h2 class="reveal d1">Measured live.<br><em>Predicted</em> forward.</h2>
+    <p class="sub reveal d2">The live card shows pure measurement — nothing forecast, nothing fudged. Arrival folds in weather, directional wind from the route geometry, and ETA-projected forecast. The two paths never contaminate each other.</p>
+    <div class="splitwrap reveal d2">
+      <div class="minicard meas"><div class="t">Live card</div><div class="big" id="splitLive">74%</div>
+        <div class="cap">Pure measurement. Weather-free, clamped 0.92–1.08, converging on the head unit.</div></div>
+      <div class="minicard pred"><div class="t">Arrival</div><div class="big" id="splitArr">61%</div>
+        <div class="cap">Forward-looking. Wind from route geometry, ETA-projected weather, trip-history learning.</div></div>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="feat">
+    <div class="kicker reveal"><span class="n">04</span><span>Self-tuning</span><span class="ln"></span></div>
+    <h2 class="reveal d1">Learns your car.<br><em>No settings screen.</em></h2>
+    <p class="sub reveal d2">Short and long trips calibrate in separate buckets, so city stop-go never poisons your highway numbers. It learns from your own trip history, fingerprinted by weather and route, and gets sharper every drive.</p>
+    <div class="card learncard reveal d2">
+      <div class="convrow"><span class="k">Short &lt;15km</span><div class="track"><i style="width:88%"></i></div><span class="v" style="color:var(--violet)">0.98×</span></div>
+      <div class="convrow"><span class="k">Long ≥15km</span><div class="track"><i style="width:96%"></i></div><span class="v" style="color:var(--accent)">1.02×</span></div>
+      <div class="convrow"><span class="k">Live factor</span><div class="track"><i style="width:72%"></i></div><span class="v" style="color:var(--tier-high)">1.01×</span></div>
+      <div class="note" id="learnNote">Converged against 14 logged trips · weather + route fingerprinted</div>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section class="feat">
+    <div class="kicker reveal"><span class="n">05</span><span>Built to survive the drive</span><span class="ln"></span></div>
+    <h2 class="reveal d1">Mount it and<br><em>forget it.</em></h2>
+    <p class="sub reveal d2">Everything that should just work, works — so the app stays out of your way for the whole trip.</p>
+    <div class="fbul reveal d2">
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 6v4"/></svg></div>
+        <div class="tx"><b>Screen wake lock</b><p>Display stays on the whole trip — no sleeping mid-drive on the mount.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4"/></svg></div>
+        <div class="tx"><b>Auto-resume</b><p>Close or reload mid-drive and it silently picks up exactly where it left off.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg></div>
+        <div class="tx"><b>SOC / range toggle</b><p>Tap the live card to flip between % and tier-coloured km.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <div class="tx"><b>Confidence lock</b><p>Near the destination the arrival number stops jittering and settles.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div>
+        <div class="tx"><b>Backup, restore &amp; CSV export</b><p>Your full trip history, exportable — with themed in-app dialogs, no browser pop-ups.</p></div></div>
+      <div class="row"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M5 12h14M5 12a7 7 0 0 1 14 0M5 12a7 7 0 0 0 14 0"/></svg></div>
+        <div class="tx"><b>Weather &amp; wind aware</b><p>Heat, rain and headwind folded into the forecast — capped and conservative.</p></div></div>
+    </div>
+  </section>
+
+  <!-- CLOSE -->
+  <section class="close">
+    <div class="reveal in">
+      <h2>One file.<br>One battery.<br><em>Zero guesswork.</em></h2>
+      <p>A single web app, no account, no backend. Your data stays on your phone. Road-tested on real Malaysian highway runs, every build.</p>
+
+      <div class="price">
+        <div class="row1">
+          <span class="amt">RM10</span><span class="per">one-time</span>
+          <span class="tag">FULL ACCESS</span>
+        </div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>All four iCaur variants supported</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Lifetime updates, no subscription</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Self-tuning calibration that learns your car</li>
+        </ul>
+      </div>
+
+      <div class="foot">iCaur Live SOC<span class="d"></span>v10.2<span class="d"></span>@alifvhmad</div>
+      <div class="replay"><a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">↑ Replay the tour</a></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* progress rail */
+const rail=document.getElementById('rail');
+const onScroll=()=>{const h=document.documentElement;const p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);rail.style.width=(p*100)+'%';};
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* scroll reveals */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.18});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ---------- LIVE DATA from icarLiveSoc localStorage ----------
+   Scans every key under the icarLiveSoc prefix (storage keys kept this
+   prefix to preserve existing user data). Pulls plausible fields; if none
+   found (e.g. opened by someone with empty storage), keeps the SAMPLE
+   values. Never throws, never blanks the gauge. */
+(function hydrate(){
+  function scan(){
+    const out={};
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(!k||k.indexOf('icarLiveSoc')!==0) continue;
+        let v=localStorage.getItem(k);
+        try{v=JSON.parse(v);}catch(_){}
+        out[k]=v;
+      }
+    }catch(_){}
+    return out;
+  }
+  function find(store,regexes){
+    for(const re of regexes){
+      for(const k in store){
+        if(re.test(k)){
+          const v=store[k];
+          if(typeof v==='number'&&isFinite(v)) return v;
+          if(typeof v==='string'&&v!==''&&isFinite(+v)) return +v;
+          if(v&&typeof v==='object'){
+            for(const f in v){ if(re.test(f)&&typeof v[f]==='number'&&isFinite(v[f])) return v[f]; }
+          }
+        }
+      }
+    }
+    return null;
+  }
+  function tripCount(store){
+    let n=0;
+    for(const k in store){
+      if(/trip.*log|tripLog|trips/i.test(k)&&Array.isArray(store[k])) n=Math.max(n,store[k].length);
+    }
+    return n||null;
+  }
+  const store=scan();
+  if(Object.keys(store).length===0) return; // keep SAMPLE
+
+  const soc   = find(store,[/(^|_)soc/i,/stateOfCharge/i,/battery.*pct|pct.*battery/i,/liveSoc/i]);
+  const arr   = find(store,[/arrival/i,/arriveSoc|arrival_soc/i]);
+  const eff   = find(store,[/kwh.*100|consumption|efficiency|avgConsum/i]);
+  const trips = tripCount(store);
+
+  function tier(p){ return p>=60?'#34E0A1':p>=30?'#FFC24B':'#FF6B5E'; }
+
+  if(soc!=null&&isFinite(soc)){
+    const el=document.getElementById('socVal');
+    el.textContent=Math.round(soc);
+    const c=tier(soc);
+    el.style.background=`linear-gradient(180deg,#fff,${c})`;
+    el.style.webkitBackgroundClip='text'; el.style.backgroundClip='text';
+    document.querySelector('.soc small').style.color=c;
+    document.getElementById('socBar').style.width=Math.max(4,Math.min(100,soc))+'%';
+    document.getElementById('splitLive').textContent=Math.round(soc)+'%';
+    document.getElementById('gaugeSrc').textContent='LIVE';
+    if(eff&&isFinite(eff)){
+      const km=Math.round((soc/100)*66.5/(eff/100));
+      document.getElementById('rangePill').textContent='● '+km+' km';
+    }
+  }
+  if(arr!=null&&isFinite(arr)){
+    document.getElementById('arrVal').innerHTML=Math.round(arr)+'<u>%</u>';
+    document.getElementById('splitArr').textContent=Math.round(arr)+'%';
+  }
+  if(eff!=null&&isFinite(eff)) document.getElementById('effVal').innerHTML=eff.toFixed(1)+'<u>kWh/100</u>';
+  if(trips!=null){
+    document.getElementById('tripVal').textContent=trips;
+    document.getElementById('learnNote').textContent='Converged against '+trips+' logged trips · weather + route fingerprinted';
+  }
+})();
+</script>
+</body>
+</html>
